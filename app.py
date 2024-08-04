@@ -224,8 +224,73 @@ def train_ada_boost():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+@app.route('/train_svm', methods=['POST'])
+def train_svm():
+    data = request.json
+    kernel = data['kernel']
+    c_param = float(data['c_param'])
+    gamma = data['gamma']
 
+    model = SVC(kernel=kernel, C=c_param, gamma=gamma)
+    X_train, X_test, y_train, y_test = train_test_split(X, y)
+    model.fit(X_train, y_train)
+    accuracy = model.score(X_test, y_test)
+    return jsonify(message=f"SVM accuracy: {accuracy:.2f}")
 
+@app.route('/train_bagging', methods=['POST'])
+def train_bagging():
+    data = request.json
+    n_estimators = int(data['n_estimators'])
+    max_samples = float(data['max_samples'])
+    max_features = float(data['max_features'])
+
+    model = BaggingClassifier(n_estimators=n_estimators, max_samples=max_samples, max_features=max_features)
+    X_train, X_test, y_train, y_test = train_test_split(X, y)
+    model.fit(X_train, y_train)
+    accuracy = model.score(X_test, y_test)
+    return jsonify(message=f"Bagging accuracy: {accuracy:.2f}")
+
+@app.route('/train_random_forest', methods=['POST'])
+def train_random_forest():
+    data = request.json
+    rf_criterion = data['rf_criterion']
+    rf_estimators = int(data['rf_estimators'])
+    rf_max_depth = int(data['rf_max_depth'])
+    rf_max_features = data['rf_max_features']
+
+    model = RandomForestClassifier(criterion=rf_criterion, n_estimators=rf_estimators, max_depth=rf_max_depth, max_features=rf_max_features)
+    X_train, X_test, y_train, y_test = train_test_split(X, y)
+    model.fit(X_train, y_train)
+    accuracy = model.score(X_test, y_test)
+    return jsonify(message=f"Random Forest accuracy: {accuracy:.2f}")
+
+@app.route('/train_xgboost', methods=['POST'])
+def train_xgboost():
+    data = request.json
+    num_boost_round = int(data['num_boost_round'])
+    early_stopping = int(data['early_stopping'])
+
+    model = XGBClassifier(n_estimators=num_boost_round)
+    X_train, X_test, y_train, y_test = train_test_split(X, y)
+    model.fit(X_train, y_train, early_stopping_rounds=early_stopping, eval_set=[(X_test, y_test)], verbose=False)
+    accuracy = model.score(X_test, y_test)
+    return jsonify(message=f"XGBoost accuracy: {accuracy:.2f}")
+
+@app.route('/train_stacking', methods=['POST'])
+def train_stacking():
+    data = request.json
+    stacking_cv = int(data['stacking_cv'])
+    final_estimator = data['final_estimator']
+
+    base_models = [
+        ('dt', DecisionTreeClassifier()),
+        ('svm', SVC(probability=True))
+    ]
+    model = StackingClassifier(estimators=base_models, final_estimator=LogisticRegression())
+    X_train, X_test, y_train, y_test = train_test_split(X, y)
+    model.fit(X_train, y_train)
+    accuracy = model.score(X_test, y_test)
+    return jsonify(message=f"Stacking accuracy: {accuracy:.2f}")
 
 @app.route('/logout')
 def logout():
