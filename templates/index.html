@@ -1,0 +1,585 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Data Transformation Page</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style0.css') }}">
+</head>
+<body>
+    <div class="container">
+        <nav class="tabs">
+            <div class="tab active" data-tab="data-ingestion">Data Ingestion</div>
+            <div class="tab" data-tab="data-transformation">Data Transformation</div>
+            <div class="tab" data-tab="auto-train">Auto Train ML models</div>
+            <div class="tab" data-tab="freeze-learnings">Freeze the learnings</div>
+        </nav>
+
+        <div class="content active" id="data-ingestion">
+            <div class="section">
+                <h2>Data Ingestion</h2>
+                <form action="{{ url_for('ingest') }}" method="POST" enctype="multipart/form-data">
+                    <div class="input-group">
+                        <div class="input-wrapper">
+                            <label>Path of file:</label>
+                            <input type="file" name="file" id="file-upload">
+                            <button type="submit" id="ingest-btn" class="btn"><i class="fas fa-upload"></i> Ingest</button>
+                        </div>
+                    </div>
+                </form>
+                {% if filename %}
+                <div class="input-group">
+                    <label for="file-name">Name of File (with extension):</label>
+                    <p>Uploaded File: {{ filename }}</p>
+                </div>
+                {% endif %}
+               
+                {% if rows is defined and cols is defined %}
+                    <p>Number of Rows: {{ rows }}</p>
+                    <p>Number of Columns: {{ cols }}</p>
+                    <h2>First 5 Rows:</h2>
+                    {{ first_rows | safe }}
+                {% endif %}
+            </div>
+        </div>
+
+       <div class="content" id="data-transformation">
+            <div class="section">
+                <h2>Remove Features</h2>
+                <div class="input-group">
+                    <div class="input-wrapper">
+                        <label>Features to Remove:</label>
+                        <div class="custom-select">
+                            <div class="select-box" id="select-box">Select features</div>
+                            <div class="options-container" id="options-container">
+                                {% for feature in features %}
+                                    <div class="option" data-value="{{ feature }}">{{ feature }}</div>
+                                {% endfor %}
+                            </div>
+                        </div>
+                        <button class="btn small-btn" onclick="removeFeatures()"><i class="fas fa-play"></i> Run</button>
+                        <div class="selected-options" id="selected-options"></div>
+                    </div>
+                </div>
+                <p id="remove-features-message"></p>
+            </div>
+
+            <div class="section">
+                <h2>Convert to Numbers</h2>
+                <div class="input-group">
+                    <div class="input-wrapper">
+                        <label>Features to Convert:</label>
+                        <div class="custom-select">
+                            <div class="select-box" id="select-box-convert">Select feature</div>
+                            <div class="options-container" id="options-container-convert">
+                                {% for feature in features %}
+                                    <div class="option" data-value="{{ feature }}">{{ feature }}</div>
+                                {% endfor %}
+                            </div>
+                        </div>
+                        <button class="btn small-btn" onclick="convertToNumbers()"><i class="fas fa-play"></i> Run</button>
+                        <div class="selected-options" id="selected-options-convert"></div>
+                    </div>
+                </div>
+                <p id="convert-features-message"></p>
+            </div>
+            <script>
+                document.addEventListener('DOMContentLoaded', function() {
+                    const selectBox = document.getElementById('select-box');
+                    const optionsContainer = document.getElementById('options-container');
+                    const selectedOptionsContainer = document.getElementById('selected-options');
+                    let selectedOptions = [];
+            
+                    // Toggle options container
+                    selectBox.addEventListener('click', function() {
+                        if (optionsContainer.style.display === 'none' || optionsContainer.style.display === '') {
+                            optionsContainer.style.display = 'block';
+                        } else {
+                            optionsContainer.style.display = 'none';
+                        }
+                    });
+            
+                    // Add feature to selected options
+                    optionsContainer.addEventListener('click', function(e) {
+                        if (e.target.classList.contains('option')) {
+                            const value = e.target.getAttribute('data-value');
+                            if (!selectedOptions.includes(value)) {
+                                selectedOptions.push(value);
+                                const optionDiv = document.createElement('div');
+                                optionDiv.classList.add('selected-option');
+                                optionDiv.innerHTML = `${value}<span class="remove" data-value="${value}">&times;</span>`;
+                                selectedOptionsContainer.appendChild(optionDiv);
+                                e.target.remove();
+                            }
+                            optionsContainer.style.display = 'none';
+                        }
+                    });
+            
+                    // Remove feature from selected options
+                    selectedOptionsContainer.addEventListener('click', function(e) {
+                        if (e.target.classList.contains('remove')) {
+                            const value = e.target.getAttribute('data-value');
+                            selectedOptions = selectedOptions.filter(option => option !== value);
+                            e.target.parentElement.remove();
+                            const optionDiv = document.createElement('div');
+                            optionDiv.classList.add('option');
+                            optionDiv.setAttribute('data-value', value);
+                            optionDiv.innerText = value;
+                            optionsContainer.appendChild(optionDiv);
+                        }
+                    });
+            
+                    // Convert to Numbers Functionality
+                    const selectBoxConvert = document.getElementById('select-box-convert');
+                    const optionsContainerConvert = document.getElementById('options-container-convert');
+                    const selectedOptionsContainerConvert = document.getElementById('selected-options-convert');
+                    let selectedOptionConvert = null;
+            
+                    selectBoxConvert.addEventListener('click', () => {
+                        optionsContainerConvert.style.display = optionsContainerConvert.style.display === 'none' ? 'block' : 'none';
+                    });
+            
+                    optionsContainerConvert.addEventListener('click', event => {
+                        const option = event.target;
+                        const value = option.getAttribute('data-value');
+            
+                        if (selectedOptionConvert !== value) {
+                            if (selectedOptionConvert !== null) {
+                                optionsContainerConvert.querySelector(`[data-value="${selectedOptionConvert}"]`).style.display = 'block';
+                            }
+                            selectedOptionConvert = value;
+                            option.style.display = 'none';
+                            selectedOptionsContainerConvert.innerHTML = '';
+                            const selectedOption = document.createElement('div');
+                            selectedOption.classList.add('selected-option-convert');
+                            selectedOption.setAttribute('data-value', value);
+                            selectedOption.innerHTML = `${value} <i class="fas fa-times remove-option"></i>`;
+                            selectedOptionsContainerConvert.appendChild(selectedOption);
+                        }
+                    });
+            
+                    selectedOptionsContainerConvert.addEventListener('click', event => {
+                        if (event.target.classList.contains('remove-option')) {
+                            const selectedOption = event.target.parentElement;
+                            const value = selectedOption.getAttribute('data-value');
+                            selectedOptionConvert = null;
+                            selectedOption.remove();
+                            optionsContainerConvert.querySelector(`[data-value="${value}"]`).style.display = 'block';
+                        }
+                    });
+                });
+            
+                function removeFeatures() {
+                    const selectedFeatures = Array.from(document.querySelectorAll('.selected-option')).map(el => el.textContent.trim());
+            
+                    fetch('{{ url_for("remove_features") }}', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({ features: selectedFeatures })
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            document.getElementById('remove-features-message').innerHTML = `
+                                <p>Number of Rows: ${data.rows}</p>
+                                <p>Number of Columns: ${data.cols}</p>
+                                <h2>First 5 Rows:</h2>
+                                ${data.first_rows}
+                            `;
+                            // Update the dropdown with the remaining features
+                            document.getElementById('options-container').innerHTML = data.features.map(feature => `
+                                <div class="option" data-value="${feature}">${feature}</div>
+                            `).join('');
+                            // Clear selected options
+                            document.getElementById('selected-options').innerHTML = '';
+                        } else {
+                            document.getElementById('remove-features-message').innerText = `Error: ${data.error}`;
+                        }
+                    })
+                    .catch(error => {
+                        document.getElementById('remove-features-message').innerText = `Error: ${error}`;
+                    });
+                }
+            
+                function convertToNumbers() {
+    const selectedFeature = document.querySelector('.selected-option-convert');
+    const feature = selectedFeature ? selectedFeature.getAttribute('data-value') : null;
+
+    console.log('Selected feature:', feature); // Debugging statement
+
+    if (feature) {
+        fetch('{{ url_for("convert_to_numbers") }}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ feature: feature })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                document.getElementById('convert-features-message').innerHTML = `
+                    <p>Number of Rows: ${data.rows}</p>
+                    <p>Number of Columns: ${data.cols}</p>
+                    <h2>First 5 Rows:</h2>
+                    ${data.first_rows}
+                `;
+                // Update the dropdown with the remaining features
+                document.getElementById('options-container-convert').innerHTML = data.features.map(feature => `
+                    <div class="option" data-value="${feature}">${feature}</div>
+                `).join('');
+                // Clear selected options
+                document.getElementById('selected-options-convert').innerHTML = '';
+            } else {
+                document.getElementById('convert-features-message').innerText = `Error: ${data.message}`;
+            }
+        })
+        .catch(error => {
+            document.getElementById('convert-features-message').innerText = `Error: ${error}`;
+        });
+    } else {
+        document.getElementById('convert-features-message').innerText = 'No feature selected.';
+    }
+}
+
+        
+            </script>
+<!-- Data Dimension Section -->
+<div class="section">
+    <h2>Data Dimension</h2>
+    <div class="input-group">
+        <div class="input-wrapper">
+            <label>Select Label for Training:</label>
+            <div class="custom-select">
+                <div class="select-box" id="select-label-box" onclick="toggleDropdown()">Select label</div>
+                <div class="options-container" id="label-options-container">
+                    {% for feature in features %}
+                        <div class="option" data-value="{{ feature }}" onclick="selectOption(this)">{{ feature }}</div>
+                    {% endfor %}
+                </div>
+            </div>
+            <button class="btn small-btn" onclick="selectLabel()"><i class="fas fa-play"></i> Run</button>
+            <div class="selected-options" id="selected-label"></div>
+        </div>
+    </div>
+    <p id="data-dimension-message"></p>
+</div>
+
+<script>
+    function toggleDropdown() {
+        const container = document.getElementById('label-options-container');
+        container.classList.toggle('show');
+    }
+
+    function selectOption(element) {
+        const value = element.getAttribute('data-value');
+        const selectBox = document.getElementById('select-label-box');
+        const selectedLabel = document.getElementById('selected-label');
+
+        selectBox.innerText = value;
+        selectedLabel.innerText = `Selected Label: ${value}`;
+
+        // Close the dropdown
+        toggleDropdown();
+    }
+
+    // Close the dropdown if the user clicks outside of it
+    window.onclick = function(event) {
+        if (!event.target.matches('.select-box')) {
+            const dropdowns = document.getElementsByClassName("options-container");
+            for (let i = 0; i < dropdowns.length; i++) {
+                const openDropdown = dropdowns[i];
+                if (openDropdown.classList.contains('show')) {
+                    openDropdown.classList.remove('show');
+                }
+            }
+        }
+    }
+    function selectLabel() {
+            const selectBox = document.getElementById('select-label-box');
+            const label = selectBox.innerText;
+
+            fetch('{{ url_for("select_label") }}', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ label: label })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    document.getElementById('data-dimension-message').innerText = `Label ${data.label} selected.`;
+                } else {
+                    document.getElementById('data-dimension-message').innerText = `Error: ${data.message}`;
+                }
+            })
+            .catch(error => console.error('Error:', error));
+        }
+</script>
+
+<style>
+    .custom-select {
+        position: relative;
+        display: inline-block;
+    }
+
+
+    .options-container.show {
+        display: block;
+    }
+
+    .option {
+        padding: 10px;
+        cursor: pointer;
+    }
+
+</style>
+
+       </div>
+
+  <!-- Auto Train ML Models Section -->
+  <div class="content" id="auto-train" role="tabpanel">
+    <div class="section">
+        <h2>Train Test Split</h2>
+        <div class="input-group">
+            <div class="input-wrapper">
+                <label for="train-data">% of Training Data:</label>
+                <input type="text" id="train-data" placeholder="% of training data">
+            </div>
+            <button class="btn small-btn" onclick="trainTestSplit()"><i class="fas fa-play"></i> Run</button>
+        </div>
+        <p id="train-test-split-accuracy"></p>
+    </div>
+
+    <div class="section">
+        <h2>Decision Tree</h2>
+        <div class="input-group">
+            <div class="input-wrapper">
+                <label for="criterion">Criterion:</label>
+                <input type="text" id="criterion" placeholder="Criterion">
+            </div>
+            <div class="input-wrapper">
+                <label for="max-depth">Max Depth:</label>
+                <input type="text" id="max-depth" placeholder="Max depth">
+            </div>
+            <div class="input-wrapper">
+                <label for="min-sample-split">Min Sample Split:</label>
+                <input type="text" id="min-sample-split" placeholder="Sample">
+            </div>
+            <div class="input-wrapper">
+                <label for="min-sample-leaf">Min Sample Leaf:</label>
+                <input type="text" id="min-sample-leaf" placeholder="Sample">
+            </div>
+            <button class="btn small-btn" onclick="trainDecisionTree()"><i class="fas fa-play"></i> Run</button>
+        </div>
+        <p id="decision-tree-accuracy"></p>
+    </div>
+
+    <div class="section">
+        <h2>ADA Boosting</h2>
+        <div class="input-group">
+            <div class="input-wrapper">
+                <label for="n-estimators">N Estimators:</label>
+                <input type="text" id="n-estimators" placeholder="N estimators">
+            </div>
+            <div class="input-wrapper">
+                <label for="learning-rate">Learning Rate:</label>
+                <input type="text" id="learning-rate" disabled placeholder="Rate">
+            </div>
+            <button class="btn small-btn" onclick="trainAdaBoost()"><i class="fas fa-play"></i> Run</button>
+        </div>
+        <p id="ada-boost-accuracy"></p>
+    </div>
+
+</div>
+<script>
+
+    function trainTestSplit() {
+        const trainData = document.getElementById('train-data').value;
+        fetch('/train_test_split', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ train_data: trainData })
+        })
+        .then(response => response.json())
+        .then(data => {
+            document.getElementById('train-test-split-accuracy').innerText = `Accuracy: ${data.accuracy}`;
+        })
+        .catch(error => console.error('Error:', error));
+    }
+
+    function trainDecisionTree() {
+        const criterion = document.getElementById('criterion').value;
+        const maxDepth = document.getElementById('max-depth').value;
+        const minSampleSplit = document.getElementById('min-sample-split').value;
+        fetch('/train_decision_tree', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ criterion, max_depth: maxDepth, min_sample_split: minSampleSplit })
+        })
+        .then(response => response.json())
+        .then(data => {
+            document.getElementById('decision-tree-accuracy').innerText = `Accuracy: ${data.accuracy}`;
+        })
+        .catch(error => console.error('Error:', error));
+    }
+
+    function trainAdaBoost() {
+        const nEstimators = document.getElementById('n-estimators').value;
+        fetch('/train_ada_boost', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ n_estimators: nEstimators })
+        })
+        .then(response => response.json())
+        .then(data => {
+            document.getElementById('ada-boost-accuracy').innerText = `Accuracy: ${data.accuracy}`;
+        })
+        .catch(error => console.error('Error:', error));
+    }
+
+    // Repeat similar functions for other models
+</script>
+
+<!-- Freeze Learnings Section -->
+<div class="content" id="freeze-learnings" role="tabpanel">
+    <div class="section">
+        <h2>Freeze Learnings</h2>
+
+        <!-- Linear Regression Section -->
+        <div class="section">
+            <h2>Linear Regression</h2>
+            <div class="input-group">
+                <div class="input-wrapper">
+                    <label for="lr-path">Path to Export:</label>
+                    <input type="text" id="lr-path" placeholder="Path to export model">
+                </div>
+                <button class="btn small-btn"><i class="fas fa-play"></i> Export</button>
+            </div>
+        </div>
+
+        <!-- Decision Tree Section -->
+        <div class="section">
+            <h2>Decision Tree</h2>
+            <div class="input-group">
+                <div class="input-wrapper">
+                    <label for="dt-path">Path to Export:</label>
+                    <input type="text" id="dt-path" placeholder="Path to export model">
+                </div>
+                <button class="btn small-btn"><i class="fas fa-play"></i> Export</button>
+            </div>
+        </div>
+
+        <!-- ADA Boosting Section -->
+        <div class="section">
+            <h2>ADA Boosting</h2>
+            <div class="input-group">
+                <div class="input-wrapper">
+                    <label for="ada-path">Path to Export:</label>
+                    <input type="text" id="ada-path" placeholder="Path to export model">
+                </div>
+                <button class="btn small-btn"><i class="fas fa-play"></i> Export</button>
+            </div>
+        </div>
+        
+        <!-- New Sections for Export -->
+        <div class="section">
+            <h2>Support Vector Machine (SVM)</h2>
+            <div class="input-group">
+                <div class="input-wrapper">
+                    <label for="svm-path">Path to Export:</label>
+                    <input type="text" id="svm-path" placeholder="Path to export model">
+                </div>
+                <button class="btn small-btn"><i class="fas fa-play"></i> Export</button>
+            </div>
+        </div>
+
+        <div class="section">
+            <h2>Bagging</h2>
+            <div class="input-group">
+                <div class="input-wrapper">
+                    <label for="bagging-path">Path to Export:</label>
+                    <input type="text" id="bagging-path" placeholder="Path to export model">
+                </div>
+                <button class="btn small-btn"><i class="fas fa-play"></i> Export</button>
+            </div>
+        </div>
+
+        <div class="section">
+            <h2>Random Forest</h2>
+            <div class="input-group">
+                <div class="input-wrapper">
+                    <label for="rf-path">Path to Export:</label>
+                    <input type="text" id="rf-path" placeholder="Path to export model">
+                </div>
+                <button class="btn small-btn"><i class="fas fa-play"></i> Export</button>
+            </div>
+        </div>
+
+        <div class="section">
+            <h2>XGBoost</h2>
+            <div class="input-group">
+                <div class="input-wrapper">
+                    <label for="xgboost-path">Path to Export:</label>
+                    <input type="text" id="xgboost-path" placeholder="Path to export model">
+                </div>
+                <button class="btn small-btn"><i class="fas fa-play"></i> Export</button>
+            </div>
+        </div>
+
+        <div class="section">
+            <h2>Stacking</h2>
+            <div class="input-group">
+                <div class="input-wrapper">
+                    <label for="stacking-path">Path to Export:</label>
+                    <input type="text" id="stacking-path" placeholder="Path to export model">
+                </div>
+                <button class="btn small-btn"><i class="fas fa-play"></i> Export</button>
+            </div>
+        </div>
+
+        <div class="section">
+            <h2>Fully Connected Neural Networks (FCNN)</h2>
+            <div class="input-group">
+                <div class="input-wrapper">
+                    <label for="fcnn-path">Path to Export:</label>
+                    <input type="text" id="fcnn-path" placeholder="Path to export model">
+                </div>
+                <button class="btn small-btn"><i class="fas fa-play"></i> Export</button>
+            </div>
+        </div>
+    </div>
+</div>
+</div>
+
+<a href="{{ url_for('logout') }}" class="logout" role="button"><i class="fas fa-sign-out-alt"></i> Logout</a>
+
+<script>
+document.querySelectorAll('.tab').forEach(tab => {
+    tab.addEventListener('click', function() {
+        document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+        this.classList.add('active');
+
+        document.querySelectorAll('.content').forEach(content => content.classList.remove('active'));
+        document.getElementById(this.getAttribute('data-tab')).classList.add('active');
+    });
+});
+
+document.querySelectorAll('.btn.small-btn').forEach(button => {
+    button.addEventListener('click', function() {
+        alert('Button clicked');
+    });
+});
+</script>
+</body>
+</html>
