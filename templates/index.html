@@ -397,40 +397,82 @@
 
 </div>
 <script>
+function trainTestSplit() {
+    const trainDataInput = document.getElementById('train-data');
+    const trainData = trainDataInput.value || 80; // Default to 80% if empty
 
-    function trainTestSplit() {
-        const trainData = document.getElementById('train-data').value;
-        fetch('/train_test_split', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({ train_data: trainData })
-        })
-        .then(response => response.json())
-        .then(data => {
-            document.getElementById('train-test-split-accuracy').innerText = `Accuracy: ${data.accuracy}`;
-        })
-        .catch(error => console.error('Error:', error));
-    }
+    // Show loading state
+    const messageElement = document.getElementById('train-test-split-accuracy');
+    messageElement.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Performing split...';
 
-    function trainDecisionTree() {
-        const criterion = document.getElementById('criterion').value;
-        const maxDepth = document.getElementById('max-depth').value;
-        const minSampleSplit = document.getElementById('min-sample-split').value;
-        fetch('/train_decision_tree', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({ criterion, max_depth: maxDepth, min_sample_split: minSampleSplit })
+    fetch('/train_test_split', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ train_data: trainData })
+    })
+    .then(response => {
+        if (!response.ok) {
+            return response.json().then(err => { throw new Error(err.error || 'Split failed') });
+        }
+        return response.json();
+    })
+    .then(data => {
+        if (data.success) {
+            messageElement.innerHTML = `✅ ${data.message}`;
+            // Enable train buttons
+            document.querySelectorAll('.train-btn').forEach(btn => {
+                btn.disabled = false;
+            });
+        } else {
+            messageElement.innerHTML = `❌ Error: ${data.error}`;
+        }
+    })
+    .catch(error => {
+        messageElement.innerHTML = `❌ Error: ${error.message}`;
+        console.error('Split Error:', error);
+    });
+}
+
+function trainDecisionTree() {
+    const messageElement = document.getElementById('decision-tree-accuracy');
+    messageElement.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Training model...';
+
+    const criterion = document.getElementById('criterion').value || 'gini';
+    const maxDepth = document.getElementById('max-depth').value || '';
+    const minSampleSplit = document.getElementById('min-sample-split').value || 2;
+
+    fetch('/train_decision_tree', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            criterion: criterion,
+            max_depth: maxDepth,
+            min_sample_split: minSampleSplit
         })
-        .then(response => response.json())
-        .then(data => {
-            document.getElementById('decision-tree-accuracy').innerText = `Accuracy: ${data.accuracy}`;
-        })
-        .catch(error => console.error('Error:', error));
-    }
+    })
+    .then(response => {
+        if (!response.ok) {
+            return response.json().then(err => { throw new Error(err.error || 'Training failed') });
+        }
+        return response.json();
+    })
+    .then(data => {
+        if (data.success) {
+            messageElement.innerHTML =
+                `✅ Decision Tree Accuracy: ${(data.accuracy * 100).toFixed(2)}%`;
+        } else {
+            messageElement.innerHTML = `❌ Error: ${data.error}`;
+        }
+    })
+    .catch(error => {
+        messageElement.innerHTML = `❌ Error: ${error.message}`;
+        console.error('Training Error:', error);
+    });
+}
 
     function trainAdaBoost() {
         const nEstimators = document.getElementById('n-estimators').value;
